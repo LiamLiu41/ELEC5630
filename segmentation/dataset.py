@@ -13,13 +13,38 @@ import torchvision.transforms.functional as TF
 
 def random_resize(img: Image.Image, label: Image.Image, scale_range=(0.5, 2.0)):
     # Randomly resize image
+    scale_factor = random.uniform(scale_range[0], scale_range[1])
+    new_size = (int(scale_factor*img.width), int(scale_factor*img.height))
+    # resize img and lable
+    img_resized = img.resize(new_size, Image.BILINEAR)
+    label_resized = label.resize(new_size, Image.NEAREST)
+    img = img_resized
+    label = label_resized
 
     return img, label
 
 def random_crop(img: Image.Image, label: Image.Image, size: Tuple[int, int]):
     # Random crop to the target size; pad if smaller than desired size
     # The input size is a tuple (width, height)
+    target_width, target_height = size
+    img_width, img_height = img.size
+    # if image size is smaller than target size, we should make up some part
+    if img_width < target_width or img_height < target_height:
+        pad_width = max(0, target_width - img_width)
+        pad_height = max(0, target_height - img_height)
 
+        img = Image.new('RGB', (img_width + pad_width, img_height + pad_height), 0)
+        img.paste(img, (0, 0))
+        label = Image.new('L', (img_width + pad_width, img_height + pad_height), 255)
+        label.paste(label, (0, 0))
+    # randomly choose crop part
+    x = random.randint(0, img.size[0] - target_width)
+    y = random.randint(0, img.size[1] - target_height)
+    # crop image and label
+    img_cropped = img.crop((x, y, x + target_width, y + target_height))
+    label_cropped = label.crop((x, y, x + target_width, y + target_height))
+    img = img_cropped
+    label = label_cropped
     return img, label
 
 def center_crop(img: Image.Image, label: Image.Image, size: Tuple[int, int]):

@@ -11,6 +11,8 @@ import utils
 from network import UNet
 from dataset import CityscapesSegDataset
 
+import torch.nn.functional as F
+
 
 def init_weights(m: nn.Module):
     if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d)):
@@ -29,7 +31,36 @@ def cross_entropy_loss(
     # prediction: [B, C, H, W], float32
     # labels: [B, H, W], int64
     # return the mean cross entropy loss
-    pass
+    # cross_entropy_loss implementation mannually
+    # # Ensure labels are on the same device as the prediction
+    # labels = labels.to(prediction.device)
+
+    # # # Apply softmax to obtain probabilities
+    # # probs = F.softmax(prediction, dim=1)  # [B, C, H, W]
+    # max_logits = prediction.max(dim=1, keepdim=True).values
+    # stable_logits = prediction - max_logits  # stablize the calculation
+    # probs = F.softmax(stable_logits, dim=1)
+
+    # # Create a mask to ignore the specified index
+    # mask = (labels != ignore_index)  # [B, H, W]
+    
+    # # Reshape mask to match the shape of probabilities
+    # mask = mask.unsqueeze(1)  # [B, 1, H, W]
+
+    # # Create one-hot encoding of labels
+    # labels_one_hot = torch.zeros_like(probs)  # [B, C, H, W]
+    
+    # # Only scatter valid labels, ignore the ignore_index
+    # valid_labels = labels.clone()
+    # valid_labels[valid_labels == ignore_index] = 0  # Replace ignore_index with a valid index (e.g. 0)
+    
+    # labels_one_hot.scatter_(1, valid_labels.unsqueeze(1), 1)  # One-hot encoding of labels
+
+    # # Calculate the loss only for valid pixels
+    # loss = -torch.sum(mask * (labels_one_hot * torch.log(probs + 1e-10))) / mask.sum()
+    loss = F.cross_entropy(prediction, labels, ignore_index=ignore_index)
+    return loss
+    # pass
 
 
 def main():
@@ -107,7 +138,9 @@ def main():
 
             # Task2.2: Feed forward
             ############## your code ############
-            loss : torch.Tensor # Please compute the scalar loss
+            # loss : torch.Tensor # Please compute the scalar loss
+            predictions = model(imgs)
+            loss = cross_entropy_loss(predictions, labels, ignore_index)
 
             #####################################
 

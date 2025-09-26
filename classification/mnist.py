@@ -22,7 +22,22 @@ print('Test images shape:', test_images.shape, 'Test labels shape:', test_labels
 
 # Task 0: Do some data visualization and preprocessing here
 ## your_code_here
+# Visualize some of the training images
+plt.figure(figsize=(10, 5))
+for i in range(10):
+    plt.subplot(2, 5, i + 1)
+    plt.imshow(train_images[i], cmap='gray')
+    plt.title(f'Label: {train_labels[i]}')
+    plt.axis('off')
+plt.show()
 
+# Save the figure to the results directory
+plt.savefig('results/mnist_sample_images.png')
+plt.close()
+
+# Normalize the images
+train_images = train_images.float() / 255.0
+test_images = test_images.float() / 255.0
 
 # Task 1: define the model
 # Task 1.1: Implement a Multi-Layer Perceptron (MLP) with 2 hidden layers
@@ -31,12 +46,17 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         self.input_layer = nn.Linear(28*28, num_of_neurons_in_hidden_layer)
         # your_code_here
+        self.hidden_layer = nn.Linear(num_of_neurons_in_hidden_layer, num_of_neurons_in_hidden_layer)
+        self.output_layer = nn.Linear(num_of_neurons_in_hidden_layer, num_of_classes)
 
     def forward(self, x):
         assert len(x.shape) == 4 and x.shape[1:] == (1, 28, 28), '\
             Input shape should be (batch_size, 1, 28, 28)'
         x = x.view(-1, 28*28)
         # your_code_here
+        x = F.relu(self.input_layer(x))
+        x = F.relu(self.hidden_layer(x))
+        x = self.output_layer(x)
         return x
     
 # Task 1.2: Implement a Vanilla Convolutional Neural Network (CNN)
@@ -44,11 +64,24 @@ class CNN(nn.Module):
     def __init__(self, num_of_classes=10):
         super(CNN, self).__init__()
         # your_code_here
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.fc1 = nn.Linear(64*7*7, 128)
+        self.fc2 = nn.Linear(128, num_of_classes)
 
     def forward(self, x):
         assert len(x.shape) == 4 and x.shape[1:] == (1, 28, 28), '\
             Input shape should be (batch_size, 1, 28, 28)'
         # your_code_here
+        x = self.conv1(x)
+        x = F.relu(x)
+        x = F.max_pool2d(x, 2)
+        x = self.conv2(x)
+        x = F.relu(x)
+        x = F.max_pool2d(x, 2)
+        x = x.view(-1, 64*7*7)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
         return x
 
 # Task 1.3: Implement a LeNet5 Neural Network (LeNet5)
@@ -56,11 +89,28 @@ class LeNet5(nn.Module):
     def __init__(self, num_of_classes=10):
         super(LeNet5, self).__init__()
         # your_code_here
+        # 2 Conv layer and 3 Linear layer
+        self.conv1 = nn.Conv2d(1, 6, kernel_size=5)
+        self.conv2 = nn.Conv2d(6, 16, kernel_size=5)
+        self.fc1 = nn.Linear(16*4*4, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, num_of_classes)
 
     def forward(self, x):
         assert len(x.shape) == 4 and x.shape[1:] == (1, 28, 28), '\
             Input shape should be (batch_size, 1, 28, 28)'
         # your_code_here
+        # conv -> act -> pool
+        x = self.conv1(x)
+        x = F.tanh(x)
+        x = F.avg_pool2d(x, 2)
+        x = self.conv2(x)
+        x = F.tanh(x)
+        x = F.avg_pool2d(x, 2)
+        x = x.view(-1, 16*4*4)
+        x = F.tanh(self.fc1(x))
+        x = F.tanh(self.fc2(x))
+        x = self.fc3(x)
         return x
 
 models = {
@@ -75,7 +125,8 @@ batch_size = 64
 learning_rate = 0.001
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Task 2: implement the CrossEntropyLoss here and compare with the official torch API (opt. let's try L2 loss?)
-criterion = None
+# criterion = None
+criterion = nn.CrossEntropyLoss()
 
 accuracy = []
 for model_type, model in models.items():
