@@ -47,6 +47,6 @@ LeNet5 Accuracy:
 
 Screenshot of your Python program:
 
-<img src="../../../../Study/OneDrive - stu.scu.edu.cn/xwechat_files/wxid_r2lsufs4j4ye22_2cfe/temp/RWTemp/2025-09/9e20f478899dc29eb19741386f9343c8/94956a6472e9d42c5ce74a152a332ca1.png" alt="94956a6472e9d42c5ce74a152a332ca1" style="zoom:50%;" />
+<img src="Screenshot1.png" alt="Screenshot1" style="zoom:50%;" />
 
 <img src="Screenshot2.png" alt="Screenshot2" style="zoom:50%;" />
