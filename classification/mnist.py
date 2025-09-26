@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.datasets import MNIST
 from matplotlib import pyplot as plt
+import pandas as pd
 
 # Set the seed for reproducibility
 torch.manual_seed(42)
@@ -22,22 +23,66 @@ print('Test images shape:', test_images.shape, 'Test labels shape:', test_labels
 
 # Task 0: Do some data visualization and preprocessing here
 ## your_code_here
-# Visualize some of the training images
+# (1) Randomly pick some samples and view individual images and corresponding labels from the dataset
+num_samples = 10
+random_indices = np.random.choice(len(train_images), num_samples, replace=False)
+
 plt.figure(figsize=(10, 5))
-for i in range(10):
+for i, idx in enumerate(random_indices):
     plt.subplot(2, 5, i + 1)
-    plt.imshow(train_images[i], cmap='gray')
-    plt.title(f'Label: {train_labels[i]}')
+    plt.imshow(train_images[idx].cpu().numpy(), cmap='gray')
+    plt.title(f'Label: {train_labels[idx]}')
     plt.axis('off')
+plt.suptitle('Randomly Selected Samples')
 plt.show()
 
-# Save the figure to the results directory
-plt.savefig('results/mnist_sample_images.png')
+# save
+plt.savefig('results/mnist_random_samples.png')
 plt.close()
 
-# Normalize the images
-train_images = train_images.float() / 255.0
-test_images = test_images.float() / 255.0
+# (2) Analyze the distribution of digits in the dataset
+plt.figure(figsize=(10, 5))
+
+# 统计训练标签中每个数字的出现次数
+# count frenquecy of each number in training dataset
+unique, counts = np.unique(train_labels.numpy(), return_counts=True)  # Covert to NumPy
+digit_distribution = dict(zip(unique, counts))
+
+plt.bar(digit_distribution.keys(), digit_distribution.values(), color='skyblue')
+plt.xlabel('Digits')
+plt.ylabel('Number of Samples')
+plt.title('Distribution of Digits in the Training Dataset')
+plt.xticks(range(10))  
+plt.grid(axis='y')
+plt.show()
+
+# save
+plt.savefig('results/mnist_digit_distribution.png')
+plt.close()
+
+# Generate statistical summaries of the dataset
+# ensure float
+train_images = train_images.float() / 255.0 # norm
+
+# flat image
+train_images_flat = train_images.view(train_images.size(0), -1)  # flat image
+
+mean = train_images_flat.mean(dim=1)
+std = train_images_flat.std(dim=1)
+
+# visualize
+summary_df = pd.DataFrame({
+    'Digit': unique,
+    'Count': counts,
+    'Mean Pixel Value': [train_images_flat[train_labels == digit].mean().item() for digit in unique],
+    'Std Pixel Value': [train_images_flat[train_labels == digit].std().item() for digit in unique]
+})
+
+print(summary_df)
+
+# save as csv files
+summary_df.to_csv('results/mnist_dataset_summary.csv', index=False)
+
 
 # Task 1: define the model
 # Task 1.1: Implement a Multi-Layer Perceptron (MLP) with 2 hidden layers
