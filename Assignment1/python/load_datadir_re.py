@@ -25,6 +25,8 @@ def load_datadir_re(datadir, bitDepth, resize, gamma, load_imgs=True, load_mask=
     # Read filename list
     with open(os.path.join(datadir, 'filenames.txt'), 'r') as f:
         data.filenames = [os.path.join(datadir, line.strip()) for line in f.readlines()]
+
+    print(f"Loaded {len(data.filenames)} images.")
     
     # Load mask image if needed
     if load_mask and not hasattr(data, 'mask'):
