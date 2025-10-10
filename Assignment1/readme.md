@@ -1,7 +1,9 @@
 # Assignment 1
+## Files format
+See file_structure.txt file.
 
 ## Requeirements
-See requirements.txt file
+See requirements.txt file.
 
 ## Command
 ```
