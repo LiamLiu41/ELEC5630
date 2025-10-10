@@ -1,4 +1,13 @@
 # Assignment 1
+
+## Requeirements
+See requirements.txt file
+
+## Command
+```
+python3 python/mainBaseline.py
+```
+
 ## 1.2.1 Least Squares-Based Method
 ### Least Squares Method
 **Equation:**
@@ -62,8 +71,6 @@ The results folder for the output:
 ![normal_map_robust](assets/normal_map-3.png)
 
 
-
-
 ## 1.2.2 Low-rank Factorization (PCA)
 
 **Workflow**
@@ -87,6 +94,7 @@ The results folder for the output:
 
 - normal_map_pca.png: The estimated normal map saved as a PNG image.
 - normal_map_pca.npy: The estimated normal map saved as a NumPy array.
+
 ![normal_map_pca](assets/normal_map_pca.png)
 ![normal_map_pca](assets/normal_map_pca-1.png)
 ![normal_map_pca](assets/normal_map_pca-2.png)
@@ -112,6 +120,7 @@ The results folder for the output:
 
 - normal_map_pms.png
 - normal_map_pms.npy
+
 ![depth_map_pms](assets/depth_map_pms.png)
 ![depth_map_pms](assets/depth_map_pms-1.png)
 ![depth_map_pms](assets/depth_map_pms-2.png)
