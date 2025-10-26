@@ -29,7 +29,7 @@
 
 # Q2.4 Homography Normalization
 import numpy as np
-from computeH import computeH  # 调用上一题的 DLT 实现
+from computeH import computeH 
 
 def computeH_norm(x1, x2):
     """

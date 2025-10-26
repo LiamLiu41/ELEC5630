@@ -26,7 +26,6 @@
 import cv2
 import numpy as np
 
-# --- 模块级全局变量，用于保存匹配结果 ---
 matches = []
 
 def matchPics(I1, I2, ratio_test_thresh=0.75):
@@ -36,7 +35,7 @@ def matchPics(I1, I2, ratio_test_thresh=0.75):
     """
     global matches
 
-    # 灰度转换
+    # gray trans
     if len(I1.shape) == 3:
         gray1 = cv2.cvtColor(I1, cv2.COLOR_BGR2GRAY)
     else:
@@ -46,12 +45,12 @@ def matchPics(I1, I2, ratio_test_thresh=0.75):
     else:
         gray2 = I2.copy()
 
-    # FAST 特征检测
+    # FAST feature detection
     fast = cv2.FastFeatureDetector_create(threshold=25, nonmaxSuppression=True)
     keypoints1 = fast.detect(gray1, None)
     keypoints2 = fast.detect(gray2, None)
 
-    # BRIEF 描述子
+    # BRIEF description
     try:
         brief = cv2.xfeatures2d.BriefDescriptorExtractor_create()
     except AttributeError:
@@ -78,8 +77,8 @@ def matchPics(I1, I2, ratio_test_thresh=0.75):
         if m.distance < ratio_test_thresh * n.distance:
             good_matches.append(m)
 
-    # 更新全局变量
+    # update
     matches = good_matches
 
-    # 返回 KeyPoint 对象列表，供 drawMatches 使用
+    # return KeyPoint 
     return keypoints1, keypoints2
