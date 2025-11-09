@@ -17,36 +17,43 @@ The complete pipeline includes:
 
 ---
 
-## Full Pipeline
+## ⚙️ Full Pipeline
+
+The implemented Structure from Motion (SfM) pipeline consists of the following stages:
 
 1. **Dataset Loading & Initialization**  
-   Load dataset images and known intrinsic parameters (K, distortion coefficients).  
-   Extrinsic parameters must **not** be used; instead, estimated poses should be evaluated against ground truth.
+   The system first loads all input images and their corresponding camera intrinsics (K and distortion coefficients).  
+   The intrinsic parameters are directly read from the dataset, while extrinsics are estimated during reconstruction and later compared with ground truth for evaluation.
 
 2. **Feature Extraction & Matching**  
-   Detect keypoints and compute descriptors using OpenCV (e.g., SIFT, ORB), SuperGlue, or LightGlue.  
-   Perform feature matching between adjacent frames to obtain correspondences.
+   I implemented a flexible feature extraction module that supports both classical and learning-based detectors (e.g., SIFT, ORB, SuperGlue, LightGlue).  
+   Keypoints are detected and described for each frame, and feature matching is performed between adjacent images to establish correspondences.
 
 3. **Fundamental Matrix Estimation**  
-   Estimate the fundamental matrix **F** using the 8-point algorithm or RANSAC to remove outliers.
+   Matched keypoints are used to estimate the fundamental matrix **F**.  
+   The implementation supports both the classic 8-point algorithm and RANSAC-based outlier rejection to improve robustness against mismatches.
 
 4. **Essential Matrix Estimation & Camera Pose Recovery**  
-   Compute **E = Kᵀ F K**, enforce singular values (1, 1, 0), and decompose to obtain four possible poses.  
-   Use the **cheirality condition** to select the correct one.
+   The essential matrix **E = Kᵀ F K** is computed and corrected by enforcing singular values (1, 1, 0).  
+   Four possible pose configurations are then decomposed, and the correct one is selected using the **cheirality condition**, ensuring reconstructed points lie in front of both cameras.
 
 5. **Triangulation**  
-   Triangulate matched keypoints to obtain initial 3D points using DLT or OpenCV built-in functions.
+   Using the recovered relative pose, 3D scene points are reconstructed through triangulation (via DLT and OpenCV built-in functions).  
+   This step provides an initial estimate of the scene structure.
 
 6. **Perspective-n-Point (PnP)**  
-   Estimate new camera poses incrementally using previously triangulated 3D points and 2D correspondences.
+   After obtaining initial 3D points, the next camera poses are estimated incrementally using the **PnP** algorithm based on new 2D–3D correspondences.  
+   This step extends the reconstruction to multiple frames.
 
-7. **Bundle Adjustment (Task 2.6)**  
-   Refine all camera poses and 3D points jointly by minimizing reprojection error using non-linear optimization (e.g., `scipy.optimize.least_squares`).  
-   > **Note:** This step can be **computationally expensive**.  
-   > If you wish to **quickly reproduce results**, you can **comment out** or **skip** this part.
+7. **Bundle Adjustment**  
+   A bundle adjustment module is implemented to jointly refine all estimated camera parameters and 3D points by minimizing reprojection error.  
+   The optimization is done using `scipy.optimize.least_squares`.  
+   > **Note:** This step is computationally expensive.  
+   > For quick reproduction, this part can be commented out or skipped.
 
 8. **(Optional) Non-linear Optimization for Triangulation and PnP**  
-   Further refine the results of **triangulation** and **PnP** by minimizing projection error after each step.  
+   To further improve accuracy, optional non-linear refinements are applied after each **Triangulation** and **PnP** step.  
+   These local optimizations minimize geometric projection error and help stabilize the reconstruction process.
 
 ---
 
