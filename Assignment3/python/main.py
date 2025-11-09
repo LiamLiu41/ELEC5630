@@ -102,7 +102,7 @@ def main():
     K_path = os.path.join("..", "data", "templeRing", "camera.txt")
     K = np.loadtxt(K_path)
     print("Loaded intrinsic matrix K:\n", K)
-    print("✅ Task 1 completed.\n")
+    print("Task 1 completed.\n")
 
     detector, is_binary = create_detector(args.detector)
 
@@ -129,24 +129,24 @@ def main():
         matches = match_descriptors(prev_des, curr_des, binary_descriptor=is_binary, ratio_thresh=args.ratio)
         print(f"Found {len(matches)} good matches")
         pts1, pts2 = extract_matched_keypoints(prev_kp, curr_kp, matches)
-        print("✅ Task 2.2.1: Feature Correspondence completed.")
+        print("Task 2.2.1: Feature Correspondence completed.")
 
         # === Task 2.2.2: Fundamental Matrix Estimation ===
         F, mask = estimate_fundamental_matrix(pts1, pts2)
         inlier_idx = mask.ravel().astype(bool)
         pts1_in, pts2_in = pts1[inlier_idx], pts2[inlier_idx]
         print(f"Estimated Fundamental Matrix:\n{F}")
-        print("✅ Task 2.2.2: Fundamental Matrix Estimation completed.")
+        print("Task 2.2.2: Fundamental Matrix Estimation completed.")
 
         # === Task 2.3.1: Essential Matrix Estimation ===
         E = compute_essential_matrix(F, K, K)
         print("Computed Essential Matrix:\n", E)
-        print("✅ Task 2.3.1: Essential Matrix Estimation completed.")
+        print("Task 2.3.1: Essential Matrix Estimation completed.")
 
         # === Task 2.3.2: Camera Pose Extraction ===
         R, t, pose_mask = recover_pose_from_essential(E, pts1_in, pts2_in, K)
         print("Recovered camera pose (R, t):\n", R, "\n", t)
-        print("✅ Task 2.3.2: Camera Pose Extraction completed.")
+        print("Task 2.3.2: Camera Pose Extraction completed.")
 
         # === Task 2.4: Triangulation ===
         pts3d_valid, valid_mask, errors = triangulate_and_filter(
@@ -155,9 +155,9 @@ def main():
         print(f"Triangulated {len(pts1_in)} points, kept {pts3d_valid.shape[0]} valid points")
         all_points3d.append(pts3d_valid)
         camera_poses.append((R, t))
-        print("✅ Task 2.4: Triangulation completed.")
+        print("Task 2.4: Triangulation completed.")
 
-        # === ✅ Task 2.7: Non-linear Optimization ===
+        # === Task 2.7: Non-linear Optimization ===
         print("\n========== Task 2.7: Non-linear Optimization ==========")
         if pts3d_valid.shape[0] < 3:
             print("Not enough valid 3D points for non-linear optimization, skipping this frame.")
@@ -169,7 +169,7 @@ def main():
             print("Refined with non-linear optimization.")
             all_points3d[-1] = pts3d_refined
             camera_poses[-1] = (R_refined, t_refined)
-        print("✅ Task 2.7: Non-linear Optimization completed.")
+        print("Task 2.7: Non-linear Optimization completed.")
 
         # === Task 2.6: Bundle Adjustment ===
         print("\n========== Task 2.6: Bundle Adjustment ==========")
@@ -189,7 +189,7 @@ def main():
         optimized_cameras, optimized_points = run_bundle_adjustment(
             camera_params, points_3d_concat, camera_indices, point_indices, points_2d, K
         )
-        print("✅ Task 2.6: Bundle Adjustment completed.\n")
+        print("Task 2.6: Bundle Adjustment completed.\n")
 
         # Update previous frame
         prev_img, prev_kp, prev_des = curr_img, curr_kp, curr_des
@@ -201,15 +201,15 @@ def main():
         write_points_to_ply(points3d_array, os.path.join(args.out_dir, "points3d_all_frames.ply"))
         np.save(os.path.join(args.out_dir, "points3d_all_frames.npy"), points3d_array)
         print(f"Saved {points3d_array.shape[0]} total 3D points.")
-    print("✅ Task 5: Multi-frame Fusion completed.")
+    print("Task 5: Multi-frame Fusion completed.")
 
     # Save camera poses with pickle
     with open(os.path.join(args.out_dir, "camera_poses.pkl"), "wb") as f:
         pickle.dump(camera_poses, f)
     print(f"Saved camera poses for {len(camera_poses)} frames as pickle file.")
-    print("✅ Camera pose saving completed.")
+    print("Camera pose saving completed.")
 
-    print("\n========== 🎉 All Tasks Completed Successfully ==========")
+    print("\n========== All Tasks Completed Successfully ==========")
 
 
 if __name__ == '__main__':
