@@ -47,7 +47,6 @@ The complete pipeline includes:
 
 8. **(Optional) Non-linear Optimization for Triangulation and PnP**  
    Further refine the results of **triangulation** and **PnP** by minimizing projection error after each step.  
-   Implementing this step can grant **+20% bonus points** for improved reconstruction accuracy.
 
 ---
 
