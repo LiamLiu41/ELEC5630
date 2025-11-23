@@ -1,5 +1,8 @@
-/home/liuyu/yuliu_workspace/ELEC5630/Assignment4/codes/output/
+# 忽略 output 目录
+Assignment4/codes/output/
 
-/home/liuyu/yuliu_workspace/ELEC5630/Assignment4/codes/data/
+# 忽略 data 目录中的所有文件
+Assignment4/codes/data/**
 
-/home/liuyu/yuliu_workspace/ELEC5630/Assignment4/codes/test.py
+# 忽略 test.py
+Assignment4/codes/test.py
