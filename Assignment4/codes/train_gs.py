@@ -42,14 +42,16 @@ class GSSTrainer():
         # model definition
         gaussModel = GSModel(sh_degree=4, debug=False)
 
-        # randomly generate some points
+        # ===Option 1: randomly generate some points
         # you can adjust num_pts according to your GPU memory
         # larger num_pts will give better quality but require more memory and time
-        num_pts = 2**14
-        xyz = np.random.random((num_pts, 3)) * 2.6 - 1.3
-        shs = np.random.random((num_pts, 3)) / 255.0
-        # or load from ply file
-        # xyz, shs = fetchPly('data/lego/fused_light.ply')
+        # num_pts = 2**14
+        # xyz = np.random.random((num_pts, 3)) * 2.6 - 1.3
+        # shs = np.random.random((num_pts, 3)) / 255.0
+        
+        # ===Option 2:load from ply file
+        xyz, shs = fetchPly('data/lego/lego/fused_light.ply')
+        num_pts = xyz.shape[0]   # update number of points
         
         channels = dict(
             R=shs[..., 0],
@@ -65,7 +67,12 @@ class GSSTrainer():
         # load data
         dataset = NerfDataset(data_path)
         dataset_test = NerfDataset(data_path, split='test')
-        os.makedirs('output/3DGS', exist_ok=True)
+
+        # === 1. random
+        # os.makedirs('output/3DGS_random', exist_ok=True) 
+
+        # === 2. ply
+        os.makedirs('output/3DGS_ply', exist_ok=True) 
 
         for epoch in tqdm(range(epochs+1)):
             for i in range(len(dataset)):
@@ -125,7 +132,7 @@ if __name__ == '__main__':
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    data_path = './data/lego' # data path
+    data_path = './data/lego/lego' # data path
     
     trainer = GSSTrainer()
     trainer.train(data_path)
