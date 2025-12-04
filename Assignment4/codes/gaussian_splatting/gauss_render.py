@@ -51,7 +51,24 @@ def build_scaling_rotation(s, r):
     Return:
     (torch:Tensor) the matrix production of rotation matrix and scale matrix with shape (N, 3, 3) 
     '''
-    pass
+    # ensure tensors are float and on same device
+    s = s.float()
+    r = r.float()
+    device = r.device if r is not None else s.device
+
+    # build rotation matrix R from quaternion r: (N,3,3)
+    R = build_rotation(r)  # build_rotation already returns a cuda tensor in your code
+
+    # build scale matrix S = diag(sx, sy, sz) for each gaussian: (N,3,3)
+    # preserve device
+    S = torch.zeros((s.shape[0], 3, 3), device=device, dtype=s.dtype)
+    S[:, 0, 0] = s[:, 0]
+    S[:, 1, 1] = s[:, 1]
+    S[:, 2, 2] = s[:, 2]
+
+    # return R @ S  (RS). Later covariance = (RS)(RS)^T
+    RS = torch.matmul(R, S)
+    return RS
 
 
 def strip_lowerdiag(L):
@@ -81,58 +98,92 @@ def corvariance_3d(s, r):
     Return
         (torch:Tensor)) 3D covariance with shape (N, 3, 3)
     '''
-    pass
+    # build RS (N,3,3)
+    RS = build_scaling_rotation(s, r)
+    # covariance = RS @ RS^T  => yields R * S * S * R^T (i.e., scales squared)
+    cov3d = torch.matmul(RS, RS.transpose(-1, -2))
+    return cov3d
 
 
 def corvariance_2d(
     mean3d, cov3d, viewmatrix, fov_x, fov_y, focal_x, focal_y
 ):
-    """
-    Compute the 2D image-space covariance for a batch of 3D Gaussians.
-
-    Args:
-        mean3d (torch.Tensor):     (N, 3)
-            3D centers of Gaussians in world coordinates, one per Gaussian.
-
-        cov3d (torch.Tensor):      (N, 3, 3)
-            3D covariance matrices of Gaussians in world coordinates.
-
-        viewmatrix (torch.Tensor): (4, 4)
-            Camera extrinsic matrix (world-to-camera transform).
-            The code uses viewmatrix[:3, :3] as rotation and viewmatrix[-1:, :3]
-            as translation (note: last row stores translation in this convention).
-
-        fov_x (float): horizontal field of view (radians).
-        fov_y (float): vertical field of view (radians).
-        focal_x (torch.Tensor): focal length in x, in pixel units.
-        focal_y (torch.Tensor): focal length in y, in pixel units.
-
-    Returns:
-        cov2d (torch.Tensor): (N, 2, 2)
-            2D covariance matrices in image (screen) space for each projected Gaussian,
-            including a low-pass filter term for numerical stability / anti-aliasing.
-    """
-    
-    # Precompute tangent of half FOVs for frustum clipping in camera space and transform 3D Gaussian centers from world space to camera space.
+    # print("DEBUG cov3d shape:", cov3d.shape)
     tan_fovx = math.tan(fov_x * 0.5)
     tan_fovy = math.tan(fov_y * 0.5)
-    # TODO: projeect the 3d centers into camera space using mean3d and viewmatrix
-    # t = 
 
-    # Truncate Gaussians far outside the frustum.
-    # We clip the normalized coordinates x/z, y/z, then re-scale by depth z.
-    tx = (t[..., 0] / t[..., 2]).clip(min=-tan_fovx*1.3, max=tan_fovx*1.3) * t[..., 2]
-    ty = (t[..., 1] / t[..., 2]).clip(min=-tan_fovy*1.3, max=tan_fovy*1.3) * t[..., 2]
+    # -----------------------------------------------------
+    # (1) Transform 3D means from world → camera coordinates
+    # -----------------------------------------------------
+    # viewmatrix: (4,4)
+    # rotation = upper-left 3x3
+    # translation = the LAST column, not last row!
+    R = viewmatrix[:3, :3]          # (3,3)
+    T = viewmatrix[:3, 3]           # (3,)
+
+    # mean3d: (N,3)
+    # t = R * x + T
+    t = mean3d @ R.T + T[None, :]    # (N,3)
+
+
+    # -----------------------------------------------------
+    # (2) Frustum clipping for stability (EWQ paper trick)
+    # -----------------------------------------------------
+    tx = (t[..., 0] / t[..., 2]).clip(min=-tan_fovx * 1.3, max=tan_fovx * 1.3) * t[..., 2]
+    ty = (t[..., 1] / t[..., 2]).clip(min=-tan_fovy * 1.3, max=tan_fovy * 1.3) * t[..., 2]
     tz = t[..., 2]
 
-    # TODO: build the matrxi of J and cov2d
-    # J = 
-    # W = viewmatrix[:3,:3].T # transpose to correct viewmatrix
-    # cov2d = 
+    # -----------------------------------------------------
+    # (3) Build the Jacobian J for projection
+    # -----------------------------------------------------
+    # Projection: x_img = focal_x * (tx / tz)
+    #             y_img = focal_y * (ty / tz)
+    #
+    # J = d[x_img, y_img] / d[tx, ty, tz]
+    #
+    # Each Gaussian has its own J: (N, 2, 3)
+    eps = 1e-6
+    inv_z = 1.0 / (tz + eps)
+
+    J = torch.zeros((mean3d.shape[0], 2, 3), device=mean3d.device)
+
+    # d(x_img)/d(tx) = focal_x / tz
+    J[:, 0, 0] = focal_x * inv_z
+    # d(x_img)/d(ty) = 0
+    # d(x_img)/d(tz) = -focal_x * tx / tz^2
+    J[:, 0, 2] = -focal_x * tx * inv_z * inv_z
+
+    # d(y_img)/d(tx) = 0
+    # d(y_img)/d(ty) = focal_y / tz
+    J[:, 1, 1] = focal_y * inv_z
+    # d(y_img)/d(tz) = -focal_y * ty / tz^2
+    J[:, 1, 2] = -focal_y * ty * inv_z * inv_z
+
     
-    # add low pass filter here according to E.q. 32 of EWQ splatting
-    filter = torch.eye(2,2).to(cov2d) * 0.3
-    return cov2d[:, :2, :2] + filter[None]
+    # -----------------------------------------------------
+    # (4) Rotate 3D covariance into camera coordinates
+    #     covCam = W * cov3d * W^T
+    # -----------------------------------------------------
+    W = R.T  # (3,3) world -> camera rotation
+
+    # broadcast W to batch: (1,3,3) so we can multiply with cov3d (N,3,3)
+    W_b = W.unsqueeze(0)  # (1,3,3)
+    # cov_cam = W_b @ cov3d @ W_b.transpose(-1, -2)  # (N,3,3)
+    # to be explicit and safe with broadcasting:
+    cov_cam = torch.matmul(W_b, cov3d)            # (N,3,3)
+    cov_cam = torch.matmul(cov_cam, W_b.transpose(-1, -2))  # (N,3,3)
+
+    # -----------------------------------------------------
+    # (5) 2D covariance = J * cov_cam * J^T
+    # -----------------------------------------------------
+    cov2d = J @ cov_cam @ J.transpose(1, 2)  # (N, 2, 2)
+
+    # -----------------------------------------------------
+    # (6) Add EWQ low-pass filter (Eq. 32)
+    # -----------------------------------------------------
+    filter = torch.eye(2, 2, device=cov2d.device) * 0.3
+    return cov2d + filter[None]
+
 
 
 def projection_ndc(points, viewmatrix, projmatrix):
@@ -224,8 +275,13 @@ class GaussRenderer(nn.Module):
         self.render_alpha = torch.zeros(*self.pix_coord.shape[:2], 1).to('cuda')
 
         TILE_SIZE = 25
-        for h in range(0, camera.image_height, TILE_SIZE):
-            for w in range(0, camera.image_width, TILE_SIZE):
+        H = camera.image_height
+        W = camera.image_width
+        N = means2D.shape[0]
+        device = means2D.device
+
+        for h in range(0, H, TILE_SIZE):
+            for w in range(0, W, TILE_SIZE):
                 # check if the rectangle penetrate the tile
                 over_tl = rect[0][..., 0].clip(min=w), rect[0][..., 1].clip(min=h)
                 over_br = rect[1][..., 0].clip(max=w+TILE_SIZE-1), rect[1][..., 1].clip(max=h+TILE_SIZE-1)
@@ -234,46 +290,67 @@ class GaussRenderer(nn.Module):
                 if not in_mask.sum() > 0:
                     continue
 
+                # Extract the pixel coordinates for this tile.
+                tile_h = min(TILE_SIZE, H - h)
+                tile_w = min(TILE_SIZE, W - w)
+                # get pixel coords in the tile and flatten: (B,2)
+                tile_coord = self.pix_coord[h:h+tile_h, w:w+tile_w].reshape(-1, 2).float().to(device)  # (B,2)
+                B = tile_coord.shape[0]
 
-                # TODO: Extract the pixel coordinates for this tile.
-                # Hint: The tile's pixel coordinates should be extracted using slicing and flattening.
-                # tile_coord = ...
-    
-                # TODO: Sort Gaussians by depth.
-                # Hint: Sorting should be based on the depth values of Gaussians.
-                # sorted_depths, index = ...
-    
-                # TODO: Extract relevant Gaussian properties for the tile.
-                # Hint: Use the computed index to rearrange the following tensors.
-                # sorted_means2D = ...
-                # sorted_cov2d = ...
-                # sorted_conic = ...
-                # sorted_opacity = ...
-                # sorted_color = ...
-    
-                # TODO: Compute the distance from each pixel in the tile to the Gaussian centers.
-                # Hint: This involves computing dx between pixel coordinates and Gaussian centers.
-                # You may need to use broadcasting: dx = (tile_coord[:,None,:] - sorted_means2D[None,:]) # B N 2
-                # dx = ...
-    
-                # TODO: Compute the 2D Gaussian weight for each pixel.
-                # Hint: The weight is determined by the Mahalanobis distance using the covariance matrix.
-                # gauss_weight = ...
-    
-                # TODO: Compute the alpha blending using transmittance (T).
-                # Hint: Ensure proper transparency blending by applying the alpha compositing formula.
-                # alpha = ...
-                # T = ...
-                # acc_alpha = ...
-    
-                # TODO: Compute the color and depth contributions.
-                # Hint: Perform weighted summation using computed transmittance and opacity.
-                # tile_color = ...
+                # Sort Gaussians by depth (near to far)
+                inds = torch.nonzero(in_mask).squeeze(-1)  # indices of gaussians relevant to this tile
+                local_depths = depths[inds]
+                sorted_idx_local = torch.argsort(local_depths)  # ascending: near->far
+                sorted_inds = inds[sorted_idx_local]
 
-                # TODO: Store computed values into rendering buffers.
-                # Hint: Assign tile-wise computed values to corresponding locations in the full image buffers.
-                # self.render_color[h:h+self.tile_size, w:w+self.tile_size] = ...
-                # self.render_alpha[h:h+self.tile_size, w:w+self.tile_size] = ...
+                # Extract relevant Gaussian properties for the tile.
+                sorted_means2D = means2D[sorted_inds]          # (M,2)
+                sorted_cov2d = cov2d[sorted_inds]              # (M,2,2)
+                sorted_opacity = opacity[sorted_inds].reshape(-1)    # (M,)
+                sorted_color = color[sorted_inds]              # (M,3)
+                M = sorted_means2D.shape[0]
+
+                if M == 0:
+                    continue
+
+                # Compute the difference between each pixel and gaussian centers: (B, M, 2)
+                # tile_coord: (B,2) -> (B,1,2); means -> (1,M,2)
+                diff = tile_coord[:, None, :] - sorted_means2D[None, :, :]  # (B, M, 2)
+
+                # Compute Gaussian weights using Mahalanobis distance
+                # Precompute inverse covariances for each gaussian (M,2,2)
+                # Add small eps for numerical stability
+                eps_eye = 1e-6 * torch.eye(2, device=device)[None, :, :]
+                Sigma_inv = torch.linalg.inv(sorted_cov2d + eps_eye)  # (M,2,2)
+
+                # compute tmp = diff @ Sigma_inv for each gaussian (B,M,2)
+                # use einsum for clarity
+                tmp = torch.einsum('bmd,mdk->bmk', diff, Sigma_inv)  # (B, M, 2)
+                exponent = -0.5 * torch.sum(tmp * diff, dim=-1)  # (B, M)
+                gauss_weight = torch.exp(exponent)  # (B, M)
+
+                # per-pixel alpha for each gaussian: alpha = tau * gauss_weight
+                alpha_per_pixel = (sorted_opacity[None, :] * gauss_weight)  # (B, M)
+
+                # Compute transmittance T and weights for front-to-back compositing
+                # For each pixel b, compute cumulative product over axis M
+                one = torch.ones((B, 1), device=device)
+                cumprod_input = torch.cat([one, 1.0 - alpha_per_pixel + 1e-10], dim=1)  # (B, M+1)
+                T = torch.cumprod(cumprod_input, dim=1)[:, :-1]  # (B, M) transmittance before each gaussian
+                weights = T * alpha_per_pixel  # (B, M)
+
+                # Weighted color and alpha accumulation per pixel
+                # sorted_color: (M,3) -> broadcast to (B,M,3)
+                weighted_colors = weights[:, :, None] * sorted_color[None, :, :]  # (B, M, 3)
+                tile_color = torch.sum(weighted_colors, dim=1)  # (B, 3)
+                tile_alpha = torch.sum(weights, dim=1, keepdim=True)  # (B,1)
+
+                # Write tile results to full buffers: reshape back to (tile_h, tile_w, ...)
+                tile_color_img = tile_color.reshape(tile_h, tile_w, 3)
+                tile_alpha_img = tile_alpha.reshape(tile_h, tile_w, 1)
+
+                self.render_color[h:h+tile_h, w:w+tile_w] = tile_color_img
+                self.render_alpha[h:h+tile_h, w:w+tile_w] = tile_alpha_img
 
 
         return {
@@ -282,6 +359,7 @@ class GaussRenderer(nn.Module):
             "visiility_filter": radii > 0,
             "radii": radii
         }
+
 
 
     def forward(self, camera, pc, **kwargs):
