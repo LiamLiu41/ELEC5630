@@ -7,12 +7,12 @@ import numpy as np
 import time
 import os
 from pathlib import Path
-from tqdm import tqdm # 如果没有安装 tqdm，可以注释掉相关行
+from tqdm import tqdm 
 
 # --- Imports from your custom modules ---
 from pointnet_model import PointCloudNoisePredictor
 from visualization import plot_training_loss, plot_point_cloud_3d
-# from evaluation import chamfer_distance # 可选：如果在训练中需要评估指标
+from evaluation import chamfer_distance 
 
 # --- 0. Configuration Parameters ---
 class Config:
@@ -24,14 +24,14 @@ class Config:
     
     # Training Hyperparameters
     BATCH_SIZE = 32
-    N_EPOCHS = 50          # 建议至少跑 50-100 epochs 才能看到像样的结果
+    N_EPOCHS = 50          
     LEARNING_RATE = 1e-4
-    VAL_STEP = 500         # 每多少个 Batch 保存一次检查点
+    VAL_STEP = 500         
     
     # Paths
     CHECKPOINT_PATH_EPOCH = 'results/model_epoch_final.pth'
     CHECKPOINT_PATH_STEP_TEMPLATE = 'results/model_step_{step:06d}.pth'
-    DATA_DIR = '../data/03001627' # 请根据你实际的数据路径修改
+    DATA_DIR = '../data/03001627' 
 
 config = Config()
 
@@ -48,10 +48,8 @@ def extract(a, t, x_shape):
     """
     batch_size = t.shape[0]
     
-    # 修正：确保索引 t 和参数 a 在同一个设备上
     out = a.gather(-1, t.to(a.device))
     
-    # Reshape 并确保最终输出回到 t 所在的设备（通常也是计算设备）
     return out.reshape(batch_size, *((1,) * (len(x_shape) - 1))).to(t.device)
 
 # --- 1. Data Loading Utility ---
