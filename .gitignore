@@ -6,3 +6,10 @@ Assignment4/codes/data/**
 
 # 忽略 test.py
 Assignment4/codes/test.py
+
+# 忽略Assignment5/data
+Assignment5/data/**
+Assignment5/python/test_task22.py
+Assignment5/python/test_task23.py
+Assignment5/python/test_task24.py
+Assignment5/python/test_task25.py
